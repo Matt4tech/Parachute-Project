@@ -1,0 +1,211 @@
+//Master Device
+#include <Wire.h>//I2c
+#include <SPI.h>//SPI
+#include <SoftwareSerial.h>//Serial
+#include <SD.h>//SD card
+#include <TinyGPS++.h>//GPS
+//#include <SFE_BMP180.h>//Beromic pressure
+#include "MPU9250.h"//MPU board
+
+//##Input DATA:#########
+String fileName = "INPUTHERE.txt";
+
+
+//######################
+
+//GPS//////////////
+SoftwareSerial gpsSerial(8,9);//digital pins
+TinyGPSPlus gps;//GPS object
+//float lattitude,longitude;
+boolean gpsUpdated =false;
+///////////////////
+
+//BMP180///////////
+//SFE_BMP180 pressure;
+//Starting altitude
+#define ALTITUDE 412.0//change before Launch
+///////////////////
+
+//MPU//////////////
+MPU9250 IMU(Wire,0x68);//Creates MPU9250 at address of 0x68
+int status;
+boolean mpuUpdated;
+float mpuDataArray[10];
+///////////////////
+
+//SD Card//////////
+//CS_PIN = 10;
+File file;
+///////////////////
+
+void setup() {
+  Wire.begin();//Sets up as master of I2C bus
+  gpsSerial.begin(9600);//Starts GPS serial  
+//  if (!(pressure.begin())){//wont run until BMP connection is secured
+//    while(1);
+//  }  
+  status =IMU.begin();//wont run until MPU connection is secured
+  if(status < 0){
+    while(1) {}
+  }
+  //Initializes SD card and creates file
+  initializeSD();
+  createFile(fileName);
+
+}
+
+void loop() {
+  if(canGetGPSData()){//GPS
+    //lattitude = getLat();
+    //longitude = getLong();
+    gpsUpdated = true;
+  }else{
+    gpsUpdated = false;
+  }
+
+  //MPU
+  IMU.readSensor();
+  //mpuDataArray;
+  mpuUpdated = true;
+}
+
+
+
+
+void initializeSD(){//SD card initialization
+
+  Serial.println("Initializing SD card...");
+  pinMode(10/*CS_PIN*/, OUTPUT);
+
+  if (SD.begin())
+  {
+    Serial.println("SD card is ready to use.");
+  } else
+  {
+    Serial.println("SD card initialization failed");
+    return;
+  }
+}
+
+int createFile(String filename){//Create a file with a name
+  file = SD.open(filename, FILE_WRITE);
+
+  if (file)
+  {
+    Serial.println("File created successfully.");
+    return 1;
+  } else
+  {
+    Serial.println("Error while creating file.");
+    return 0;
+  }
+}
+
+int writeToFile(char text[]){//Write to file
+  if (file)
+  {
+    file.println(text);
+    Serial.println("Writing to file: ");
+    Serial.println(text);
+    return 1;
+  } else
+  {
+    Serial.println("Couldn't write to file");
+    return 0;
+  }
+}
+
+void closeFile(){//close file
+  if (file)
+  {
+    file.close();
+    Serial.println("File closed");
+  }
+}
+
+int openFile(char filename[]){//open specified file
+  file = SD.open(filename);
+  if (file)
+  {
+    Serial.println("File opened with success!");
+    return 1;
+  } else
+  {
+    Serial.println("Error opening file...");
+    return 0;
+  }
+}
+
+String readLine(){//read a line from file
+  String received = "";
+  char ch;
+  while (file.available())
+  {
+    ch = file.read();
+    if (ch == '\n')
+    {
+      return String(received);
+    }
+    else
+    {
+      received += ch;
+    }
+  }
+  return "";
+}
+
+void getMPUDataArray(){//gets data from MPU board and uploads into an array
+  //Saving Data
+  //Accelerometer: 
+  mpuDataArray[0] = IMU.getAccelX_mss();
+  mpuDataArray[1] = IMU.getAccelY_mss();
+  mpuDataArray[2] = IMU.getAccelZ_mss();
+  //Gyroscope:
+  mpuDataArray[3] = IMU.getGyroX_rads();
+  mpuDataArray[4] = IMU.getGyroY_rads();
+  mpuDataArray[5] = IMU.getGyroZ_rads();
+  //Magnetometer:
+  mpuDataArray[6] = IMU.getMagX_uT();
+  mpuDataArray[7] = IMU.getMagY_uT();
+  mpuDataArray[8] = IMU.getMagZ_uT();
+  //temperature:
+  mpuDataArray[9] = IMU.getTemperature_C();
+  //Format: {ax,ay,az,gx,gy,gz,hx,hy,hz,temperature};
+}
+
+void createMPUDataArray(){
+  //Accelerometer: 
+  float ax;
+  float ay;
+  float az;
+  //Gyroscope:
+  float gx;
+  float gy;
+  float gz;
+  //Magnetometer:
+  float hx;
+  float hy;
+  float hz;
+  //temperature
+  float temperature;
+  float mpuDataArray[] = {ax,ay,az,gx,gy,gz,hx,hy,hz,temperature};
+}
+
+
+float getLat(){//get Lattitude
+  float lattitude = (gps.location.lat());
+  return lattitude;
+}
+
+float getLong(){//get Longitude
+  float longitude = (gps.location.lng());
+  return longitude;
+}
+
+boolean canGetGPSData(){//checks if data from GPS sensor is avalible
+  if(gpsSerial.available() && gps.encode(gpsSerial.read())){
+    return true;
+  }else{
+    return false;
+  }
+}
