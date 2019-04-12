@@ -9,14 +9,17 @@
 
 //##Input DATA:#########
 String fileName = "INPUTHERE.txt";
-
-
+int PreloadedData1;
+int PreloadedData2;
 //######################
+//Other/////////
+int topMotor;//value to top stepper motor
+int bottomMotor;//value to bottom stepper motor
 
 //GPS//////////////
 SoftwareSerial gpsSerial(8,9);//digital pins
 TinyGPSPlus gps;//GPS object
-//float lattitude,longitude;
+float latitude,longitude;
 boolean gpsUpdated =false;
 ///////////////////
 
@@ -24,6 +27,7 @@ boolean gpsUpdated =false;
 //SFE_BMP180 pressure;
 //Starting altitude
 #define ALTITUDE 412.0//change before Launch
+float altitudeNum = 0.0;
 ///////////////////
 
 //MPU//////////////
@@ -34,8 +38,10 @@ float mpuDataArray[10];
 ///////////////////
 
 //SD Card//////////
-//CS_PIN = 10;
+//CS_PIN = 10
 File file;
+float savingDataArray[13];
+//{altitude,ax,ay,az,gx,gy,gz,hx,hy,hz,temperature,latitude,longitude}
 ///////////////////
 
 void setup() {
@@ -49,113 +55,37 @@ void setup() {
     while(1) {}
   }
   //Initializes SD card and creates file
-  initializeSD();
-  createFile(fileName);
-
+  //initializeSD();
+  //createFile(fileName);
 }
 
 void loop() {
-  if(canGetGPSData()){//GPS
-    //lattitude = getLat();
-    //longitude = getLong();
+  
+  //GPS
+  if(canGetGPSData()){
+    latitude = getLat();
+    longitude = getLong();
     gpsUpdated = true;
   }else{
     gpsUpdated = false;
   }
 
   //MPU
-  IMU.readSensor();
-  //mpuDataArray;
-  mpuUpdated = true;
-}
+  getMPUDataArray();
 
-
-
-
-void initializeSD(){//SD card initialization
-
-  Serial.println("Initializing SD card...");
-  pinMode(10/*CS_PIN*/, OUTPUT);
-
-  if (SD.begin())
-  {
-    Serial.println("SD card is ready to use.");
-  } else
-  {
-    Serial.println("SD card initialization failed");
-    return;
+  mpuUpdated = false;//end of loop
+  gpsUpdated = false;
+  if(mpuUpdated && gpsUpdated){
+    //afirmDataArray()
   }
-}
-
-int createFile(String filename){//Create a file with a name
-  file = SD.open(filename, FILE_WRITE);
-
-  if (file)
-  {
-    Serial.println("File created successfully.");
-    return 1;
-  } else
-  {
-    Serial.println("Error while creating file.");
-    return 0;
-  }
-}
-
-int writeToFile(char text[]){//Write to file
-  if (file)
-  {
-    file.println(text);
-    Serial.println("Writing to file: ");
-    Serial.println(text);
-    return 1;
-  } else
-  {
-    Serial.println("Couldn't write to file");
-    return 0;
-  }
-}
-
-void closeFile(){//close file
-  if (file)
-  {
-    file.close();
-    Serial.println("File closed");
-  }
-}
-
-int openFile(char filename[]){//open specified file
-  file = SD.open(filename);
-  if (file)
-  {
-    Serial.println("File opened with success!");
-    return 1;
-  } else
-  {
-    Serial.println("Error opening file...");
-    return 0;
-  }
-}
-
-String readLine(){//read a line from file
-  String received = "";
-  char ch;
-  while (file.available())
-  {
-    ch = file.read();
-    if (ch == '\n')
-    {
-      return String(received);
-    }
-    else
-    {
-      received += ch;
-    }
-  }
-  return "";
+  
+  sendSaveDataToSlave();
+  deUpdateData();
 }
 
 void getMPUDataArray(){//gets data from MPU board and uploads into an array
   //Saving Data
+  IMU.readSensor();
   //Accelerometer: 
   mpuDataArray[0] = IMU.getAccelX_mss();
   mpuDataArray[1] = IMU.getAccelY_mss();
@@ -171,34 +101,17 @@ void getMPUDataArray(){//gets data from MPU board and uploads into an array
   //temperature:
   mpuDataArray[9] = IMU.getTemperature_C();
   //Format: {ax,ay,az,gx,gy,gz,hx,hy,hz,temperature};
-}
-
-void createMPUDataArray(){
-  //Accelerometer: 
-  float ax;
-  float ay;
-  float az;
-  //Gyroscope:
-  float gx;
-  float gy;
-  float gz;
-  //Magnetometer:
-  float hx;
-  float hy;
-  float hz;
-  //temperature
-  float temperature;
-  float mpuDataArray[] = {ax,ay,az,gx,gy,gz,hx,hy,hz,temperature};
+  mpuUpdated = true;
 }
 
 
 float getLat(){//get Lattitude
-  float lattitude = (gps.location.lat());
-  return lattitude;
+  latitude = (gps.location.lat());
+  return latitude;
 }
 
 float getLong(){//get Longitude
-  float longitude = (gps.location.lng());
+  longitude = (gps.location.lng());
   return longitude;
 }
 
@@ -208,4 +121,39 @@ boolean canGetGPSData(){//checks if data from GPS sensor is avalible
   }else{
     return false;
   }
+}
+
+void sendSaveDataToSlave(){//send data that needs to be saved to the slave device.
+  afirmDataArray();//updates everything into single array
+  Wire.beginTransmission(0);
+  for(int x=0;x<13;x++){//delays becuase loop
+    Wire.write((byte)savingDataArray[x]);
+  }
+  Wire.write((byte)topMotor);
+  Wire.write((byte)bottomMotor);
+  Wire.write(true/*boolean*/);
+  Wire.endTransmission();
+}
+
+void afirmDataArray(){//sets up data array with all updated elements to be used for sending to the SD card
+  getMPUDataArray();
+  savingDataArray[0] = altitudeNum;//altitude
+  savingDataArray[1] = mpuDataArray[0];//Ax
+  savingDataArray[2] = mpuDataArray[1];//Ay
+  savingDataArray[3] = mpuDataArray[2];//Az
+  savingDataArray[4] = mpuDataArray[3];//Gx
+  savingDataArray[5] = mpuDataArray[4];//Gy
+  savingDataArray[6] = mpuDataArray[5];//Gz
+  savingDataArray[7] = mpuDataArray[6];//Mx
+  savingDataArray[8] = mpuDataArray[7];//My
+  savingDataArray[9] = mpuDataArray[8];//Mz
+  savingDataArray[10] = mpuDataArray[9];//Tempature
+  savingDataArray[11] = latitude;//latitude
+  savingDataArray[12] = longitude;//longitude
+  //{altitude,ax,ay,az,gx,gy,gz,hx,hy,hz,temperature,latitude,longitude}
+}
+
+boolean deUpdateData(){//sets the status of all sensors as not updated
+  mpuUpdated = false;
+  gpsUpdated = false;
 }
