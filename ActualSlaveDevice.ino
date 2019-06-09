@@ -3,15 +3,12 @@
 #include <SD.h>
 #include <SPI.h>
 
-boolean buttonPressed = false;//if button is pressed
-int LEDPIN = 8;//Led Pin
-
 //SD
 int CS_PIN = 10;
 File file;
 
 //SavingData
-float savingDataArray[13];
+float savingDataArray[16];
 int cout=0;//counter
 boolean TransComp;
 
@@ -20,19 +17,27 @@ int topMotor;
 int bottomMotor;
 
 void setup() {
+  Serial.begin(9600);
+  Serial.println("Setting up SD card");
   // put your setup code here, to run once:
   initializeSD();
-  createFile("SavingFile.txt");
-  writeToFile("This is where the dara will be stored");
+  SD.begin();
+  Serial.println("Succesful");
+  Serial.println("Creating a file if not already made");
+  createFile("TEST.txt");
+  writeToFile("This is where the data will be stored");
   closeFile();
-
+  Serial.println("Succesful");
   
-  pinMode (LEDPIN, OUTPUT);//
+  //pinMode (LEDPIN, OUTPUT);
+  Serial.println("Setting up device as slave");
   Wire.begin(0);//starts as slave device at address 0
   Wire.onReceive(receiveEvent);
+  Serial.println("Succesful");
 }
 
 void receiveEvent(int bytes){//update
+  Serial.println("Starting Reciving event");
   while (1 < Wire.available()) { // loop through all but the last
     savingDataArray[cout] = (float) Wire.read(); // receive byte as a float
     cout++;
@@ -41,22 +46,65 @@ void receiveEvent(int bytes){//update
   }
   boolean TransComp = Wire.read();
   cout=0;
+  Serial.println("completed Reciving event");
 }
 
 
 
 
 void loop() {
+  Serial.println("Starting loop...");
   //work with most recent update of data
-  openFile("SavingFile.txt");
+  openFile("TEST.txt");
   saveToFile();
+  //writeToFile("This is a test mark");
   closeFile();
+  Serial.println("Succesful end loop");
 
-  
 }
 
 void saveToFile(){
-  writeToFile("Altitude: "+ (char) savingDataArray[0]);
+//  Serial.println("Saving Saving Event...");
+//  writeToFile("Altitude: "+ (char) savingDataArray[0]);
+//  writeToFile("Ax: "+ (char) savingDataArray[1]);
+//  writeToFile("Ay: "+ (char) savingDataArray[2]);
+//  writeToFile("Az: "+ (char) savingDataArray[3]);
+//  writeToFile("Gx: "+ (char) savingDataArray[4]);
+//  writeToFile("Gy: "+ (char) savingDataArray[5]);
+//  writeToFile("Gz: "+ (char) savingDataArray[6]);
+//  writeToFile("Hx: "+ (char) savingDataArray[7]);
+//  writeToFile("Hy: "+ (char) savingDataArray[8]);
+//  writeToFile("Hz: "+ (char) savingDataArray[9]);
+//  writeToFile("Temp: "+ (char) savingDataArray[10]);
+//  writeToFile("Lat: "+ (char) savingDataArray[11]);
+//  writeToFile("Long: "+ (char) savingDataArray[12]);
+//  writeToFile("Top Motor: "+ (char) savingDataArray[13]);
+//  writeToFile("Bottom Motor: "+ (char) savingDataArray[14]);
+//  writeToFile("Boolean: "+ (char) savingDataArray[15]);
+//  writeToFile("Testing Data Mark");
+//  Serial.println("Succesful");
+
+    Serial.println("Saving Saving Event...");
+    char const *p = "mark1";
+    char m = "mark2";
+  writeToFile(p);
+  writeToFile(m);
+  writeToFile("Ay: ");
+  writeToFile("Az: ");
+  writeToFile("Gx: ");
+  writeToFile("Gy: ");
+  writeToFile("Gz: ");
+  writeToFile("Hx: ");
+  writeToFile("Hy: ");
+  writeToFile("Hz: ");
+  writeToFile("Temp: ");
+  writeToFile("Lat: ");
+  writeToFile("Long: ");
+  writeToFile("Top Motor: ");
+  writeToFile("Bottom Motor: ");
+  writeToFile("Boolean: ");
+  writeToFile("Testing Data Mark");
+  Serial.println("Succesful");
 }
 
 
