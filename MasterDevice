@@ -2,7 +2,7 @@
 #include <Wire.h>//I2c
 #include <SPI.h>//SPI
 #include <SoftwareSerial.h>//Serial
-#include <SD.h>//SD card
+//#include <SD.h>//SD card
 #include <TinyGPS++.h>//GPS
 //#include <SFE_BMP180.h>//Beromic pressure
 #include "MPU9250.h"//MPU board
@@ -39,28 +39,37 @@ float mpuDataArray[10];
 
 //SD Card//////////
 //CS_PIN = 10
-File file;
-float savingDataArray[13];
+//File file;
+float savingDataArray[13];//not counting motor movements
 //{altitude,ax,ay,az,gx,gy,gz,hx,hy,hz,temperature,latitude,longitude}
 ///////////////////
 
 void setup() {
+  Serial.begin(9600);
+  Serial.println("Starting serial Connection...");
+  Serial.println("Succesful");
+  Serial.println("Setting as master of I2C bus...");
   Wire.begin();//Sets up as master of I2C bus
+  Serial.println("Succesful");
+  Serial.println("setting up GPS serial...");
   gpsSerial.begin(9600);//Starts GPS serial  
+  Serial.println("Succesful");
 //  if (!(pressure.begin())){//wont run until BMP connection is secured
 //    while(1);
 //  }  
+Serial.println("Starting Connection to IMU...");
   status =IMU.begin();//wont run until MPU connection is secured
   if(status < 0){
     while(1) {}
   }
+  Serial.println("Succesful");
   //Initializes SD card and creates file
   //initializeSD();
   //createFile(fileName);
 }
 
 void loop() {
-  
+  Serial.println("Start of loop");
   //GPS
   if(canGetGPSData()){
     latitude = getLat();
@@ -102,6 +111,7 @@ void getMPUDataArray(){//gets data from MPU board and uploads into an array
   mpuDataArray[9] = IMU.getTemperature_C();
   //Format: {ax,ay,az,gx,gy,gz,hx,hy,hz,temperature};
   mpuUpdated = true;
+  Serial.println("MPU Updated");
 }
 
 
@@ -131,8 +141,9 @@ void sendSaveDataToSlave(){//send data that needs to be saved to the slave devic
   }
   Wire.write((byte)topMotor);
   Wire.write((byte)bottomMotor);
-  Wire.write(true/*boolean*/);
+  Wire.write((byte) true/*boolean*/);
   Wire.endTransmission();
+  Serial.println("Completion of Data Sent");
 }
 
 void afirmDataArray(){//sets up data array with all updated elements to be used for sending to the SD card
@@ -151,9 +162,11 @@ void afirmDataArray(){//sets up data array with all updated elements to be used 
   savingDataArray[11] = latitude;//latitude
   savingDataArray[12] = longitude;//longitude
   //{altitude,ax,ay,az,gx,gy,gz,hx,hy,hz,temperature,latitude,longitude}
+  Serial.println("Data array Afirmed");
 }
 
 boolean deUpdateData(){//sets the status of all sensors as not updated
   mpuUpdated = false;
   gpsUpdated = false;
+  Serial.println("Data de-Updated");
 }
